@@ -6,7 +6,6 @@ from torch.cuda.amp import GradScaler
 import matplotlib.pyplot as plt
 import tqdm
 import random
-import argparse
 # Add tegridy-tools to Python path
 import sys
 sys.path.append('./tegridy-tools/tegridy-tools/')
@@ -15,34 +14,24 @@ import TMIDIX
 from custom_basic_transformer import MusicTransformer, AutoregressiveWrapper
 
 
-def setup_args():
-    parser = argparse.ArgumentParser(description='Music Transformer Training')
-
-    # Model parameters
-    parser.add_argument('--seq_len', type=int, default=2048) # 8192
-    parser.add_argument('--dim', type=int, default=512)
-    parser.add_argument('--depth', type=int, default=6)
-    parser.add_argument('--heads', type=int, default=8)
-    parser.add_argument('--dim_head', type=int, default=64)
-    parser.add_argument('--dropout', type=float, default=0.1)
-
-    # Training parameters
-    parser.add_argument('--batch_size', type=int, default=2) # 4
-    parser.add_argument('--grad_accum', type=int, default=4)
-    parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--num_epochs', type=int, default=200)
-
-    # Intervals
-    parser.add_argument('--validate_every', type=int, default=100)
-    parser.add_argument('--generate_every', type=int, default=200)
-    parser.add_argument('--save_every', type=int, default=500)
-    parser.add_argument('--print_stats_every', type=int, default=20)
-
-    # Paths
-    parser.add_argument('--data_path', type=str, default='./content/Training_INTs')
-    parser.add_argument('--save_dir', type=str, default='./content/checkpoints')
-
-    return parser.parse_args()
+class Args:
+    def __init__(self):
+        self.seq_len = 256
+        self.dim = 512
+        self.depth = 6
+        self.heads = 8
+        self.dim_head = 64
+        self.dropout = 0.1
+        self.batch_size = 16
+        self.grad_accum = 2
+        self.lr = 3e-4
+        self.num_epochs = 50
+        self.validate_every = 100
+        self.generate_every = 200
+        self.save_every = 500
+        self.print_stats_every = 20
+        self.data_path = './content/Training_INTs'
+        self.save_dir = './content/checkpoints'
 
 
 class MusicDataset(Dataset):
@@ -52,6 +41,7 @@ class MusicDataset(Dataset):
         self.seq_len = seq_len
 
     def __getitem__(self, index):
+        # Take sequence and target, ensuring we don't exceed sequence length
         full_seq = torch.tensor(self.data[index][:self.seq_len + 1]).long()
         return full_seq.cuda()
 
@@ -143,26 +133,17 @@ def generate_sample(model, val_dataset, temperature=0.8, seq_len=1024):
 
 
 def train(args):
-    setup_training()
-
     # Load data
     train_data = load_data(args.data_path)
     PAD_IDX = 835
     NUM_TOKENS = PAD_IDX + 1
 
-    # Add to training script after data loading
-    print("Sample sequences:")
-    for i in range(3):
-        print(f"\nSequence {i}:")
-        print(train_data[i][:50])  # First 50 tokens
+    # Print dataset statistics
+    print(f"Total sequences: {len(train_data)}")
+    print(f"Average sequence length: {sum(len(s) for s in train_data)/len(train_data)}")
+    print(f"Token range: 0-{max(max(s) for s in train_data)}")
 
-    print("\nToken distribution:")
-    all_tokens = [t for seq in train_data for t in seq]
-    unique_tokens = set(all_tokens)
-    print(f"Unique tokens: {len(unique_tokens)}")
-    print(f"Total tokens: {len(all_tokens)}")
-
-    # Initialize model
+    # Initialize model with correct token range
     model = MusicTransformer(
         num_tokens=NUM_TOKENS,
         dim=args.dim,
@@ -175,8 +156,9 @@ def train(args):
     model = AutoregressiveWrapper(model)
     model.cuda()
 
-    # Initialize optimizer and scaler
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    # Use AdamW optimizer
+    optimizer = optim.AdamW(model.parameters(), lr=args.lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.num_epochs)
     scaler = GradScaler()
 
     # Training metrics
@@ -258,5 +240,5 @@ def train(args):
 
 
 if __name__ == "__main__":
-    args = setup_args()
+    args = Args()
     train(args)

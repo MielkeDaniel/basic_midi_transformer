@@ -26,7 +26,7 @@ model = MusicTransformer(
 model = AutoregressiveWrapper(model)
 
 # Load trained weights
-checkpoint = torch.load('./content/checkpoints/model_step_501_loss_0.1312.pt', weights_only=True)
+checkpoint = torch.load('./models/v1.0.pt', weights_only=True)
 state_dict = checkpoint['model_state_dict']
 
 # Remove cache entries
