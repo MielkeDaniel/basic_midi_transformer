@@ -159,15 +159,13 @@ class MusicTransformer(nn.Module):
                  depth=6,  # Number of decoder blocks
                  heads=8,  # Number of attention heads
                  dim_head=64,  # Dimension of each head
+                 max_seq_len=128,  # Maximum sequence length
                  dropout=0.1):  # Dropout rate
         super().__init__()
 
         # Token embedding layer (converts token IDs to vectors)
         self.token_emb = nn.Embedding(num_tokens, dim)
-
-        # Remove position embedding since we use RoPE now
-
-        # Dropout layer
+        self.max_seq_len = max_seq_len 
         self.dropout = nn.Dropout(dropout)
 
         # Stack of decoder blocks
@@ -182,9 +180,6 @@ class MusicTransformer(nn.Module):
 
         self.norm = nn.LayerNorm(dim)
         self.to_logits = nn.Linear(dim, num_tokens)
-
-        # Store max_seq_len for the AutoregressiveWrapper
-        self.max_seq_len = 8192  # Same as before
 
     def forward(self, x, mask=None):
         b, n = x.shape
