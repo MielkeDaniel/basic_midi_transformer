@@ -2,6 +2,8 @@
 
 A PyTorch implementation of a Transformer model for MIDI music generation. This model can learn patterns from MIDI files and generate new music sequences in a similar style.
 
+![Training Loss](/training_loss/training_progress.png)
+
 ## Features
 
 - Transformer-based architecture with Rotary Position Embedding (RoPE)
@@ -100,5 +102,3 @@ The model can generate new MIDI sequences autoregressively. During training, sam
 - `custom_basic_transformer.py`: Core transformer model implementation
 - `custom_training.py`: Training loop and utilities  
 - `dataset.py`: MIDI dataset loading and preprocessing
-
-![Training Loss](/training_loss/training_progress.png)
