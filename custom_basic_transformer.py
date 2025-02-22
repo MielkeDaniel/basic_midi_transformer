@@ -181,6 +181,18 @@ class MusicTransformer(nn.Module):
         self.norm = nn.LayerNorm(dim)
         self.to_logits = nn.Linear(dim, num_tokens)
 
+        # Initialize weights
+        self.apply(self._init_weights)
+        
+    def _init_weights(self, module):
+        """Initialize model weights."""
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
     def forward(self, x, mask=None):
         b, n = x.shape
         x = self.token_emb(x)
