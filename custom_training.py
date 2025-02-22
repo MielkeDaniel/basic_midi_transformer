@@ -1,52 +1,35 @@
 import os
 import torch
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
+import TMIDIX
 from torch.cuda.amp import GradScaler
 import matplotlib.pyplot as plt
 import tqdm
 import random
-# Add tegridy-tools to Python path
-import sys
-sys.path.append('./tegridy-tools/tegridy-tools/')
-import TMIDIX
-
+from dataset import MIDI_Dataset, detokenize
 from custom_basic_transformer import MusicTransformer, AutoregressiveWrapper
 
 
 class Args:
     def __init__(self):
-        self.seq_len = 256
+        self.seq_len = 100
         self.dim = 512
         self.depth = 6
         self.heads = 8
         self.dim_head = 64
         self.dropout = 0.1
-        self.batch_size = 16
+        self.batch_size = 2
         self.grad_accum = 2
         self.lr = 3e-4
-        self.num_epochs = 50
+        self.num_epochs = 60
         self.validate_every = 100
         self.generate_every = 200
         self.save_every = 500
         self.print_stats_every = 20
-        self.data_path = './content/Training_INTs'
+        self.data_path = './content/dataset'
         self.save_dir = './content/checkpoints'
 
-
-class MusicDataset(Dataset):
-    def __init__(self, data, seq_len):
-        super().__init__()
-        self.data = data
-        self.seq_len = seq_len
-
-    def __getitem__(self, index):
-        # Take sequence and target, ensuring we don't exceed sequence length
-        full_seq = torch.tensor(self.data[index][:self.seq_len + 1]).long()
-        return full_seq.cuda()
-
-    def __len__(self):
-        return len(self.data)
 
 
 def setup_training():
@@ -58,17 +41,8 @@ def setup_training():
     # Create save directory
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
-
-
-def load_data(path):
-    print('Loading processed MIDI data...')
-    try:
-        train_data = TMIDIX.Tegridy_Any_Pickle_File_Reader(path)
-        print('Found existing processed data!')
-        return train_data
-    except:
-        print('No processed data found. Please run MIDI processing first.')
-        raise SystemExit(0)
+    if not os.path.exists('./content/samples'):
+        os.makedirs('./content/samples')
 
 
 def save_model(model, step, loss, path):
@@ -100,48 +74,25 @@ def plot_training_progress(train_losses, train_accs, val_losses, val_accs):
     plt.close()
 
 
-def generate_sample(model, val_dataset, temperature=0.8, seq_len=1024):
+def generate_sample(model, val_dataset, step, temperature=0.8, seq_len=1024):
     model.eval()
-    inp = random.choice(val_dataset)[:64]
+    inp = random.choice(val_dataset)[:50]
 
     with torch.no_grad():
         sample = model.generate(inp[None, :], seq_len, temperature=temperature)
 
-    generated = []
-    time = 0
-    dur = 0
-
-    for token in sample[0]:
-        if token < 128:  # Time value
-            time += token
-        elif token < 256:  # Duration
-            dur = token - 128
-        elif token < 834:  # Pitch
-            pitch = token - 256
-            generated.append(['note', time, dur, 0, pitch, 90])
-
-    patches = [0] * 16  # Create list of 16 patches, all set to 0 (piano)
-
-    TMIDIX.Tegridy_ms_SONG_to_MIDI_Converter(
-        generated,
-        output_signature='Music Transformer',
-        output_file_name='generated_sample',
-        track_name='Generated Music',
-        list_of_MIDI_patches=patches,
-        timings_multiplier=32
-    )
+    detokenize(sample[0], f'./content/samples/sample_step_{step}.mid')
 
 
 def train(args):
     # Load data
-    train_data = load_data(args.data_path)
-    PAD_IDX = 835
+    print('Creating MIDI dataset...')
+    dataset = MIDI_Dataset(path=args.data_path, max_seq_len=args.seq_len)
+    PAD_IDX = dataset.pad_idx
     NUM_TOKENS = PAD_IDX + 1
 
-    # Print dataset statistics
-    print(f"Total sequences: {len(train_data)}")
-    print(f"Average sequence length: {sum(len(s) for s in train_data)/len(train_data)}")
-    print(f"Token range: 0-{max(max(s) for s in train_data)}")
+    # Print dataset statistics 
+    print(f"Total sequences: {len(dataset)}")
 
     # Initialize model with correct token range
     model = MusicTransformer(
@@ -173,14 +124,18 @@ def train(args):
     for epoch in range(args.num_epochs):
         print(f'Epoch {epoch + 1}/{args.num_epochs}')
 
-        # Prepare data
-        random.shuffle(train_data)
-        split_idx = int(0.9 * len(train_data))
-        train_dataset = MusicDataset(train_data[:split_idx], args.seq_len)
-        val_dataset = MusicDataset(train_data[split_idx:], args.seq_len)
+       # Prepare data splits
+        split_idx = int(0.9 * len(dataset))
+        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [split_idx, len(dataset) - split_idx])
 
-        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-        val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True)
+        train_loader = DataLoader(train_dataset, 
+                         batch_size=args.batch_size, 
+                         shuffle=True,
+                         collate_fn=dataset.collate_fn)
+        val_loader = DataLoader(val_dataset, 
+                            batch_size=args.batch_size, 
+                            shuffle=True,
+                            collate_fn=dataset.collate_fn)
 
         # Training loop
         model.train()
@@ -232,7 +187,7 @@ def train(args):
 
             # Generate sample
             if i % args.generate_every == 0:
-                generate_sample(model, val_dataset)
+                generate_sample(model, val_dataset, nsteps)
 
             # Save checkpoint
             if i % args.save_every == 0:
@@ -241,4 +196,5 @@ def train(args):
 
 if __name__ == "__main__":
     args = Args()
+    setup_training()
     train(args)

@@ -220,9 +220,6 @@ class AutoregressiveWrapper(nn.Module):
         self.max_seq_len = net.max_seq_len
 
     def forward(self, x, **kwargs):
-        # Extract sequence length and ignore_index
-        seq_len = x.shape[1]
-
         # Create input and target sequences for training
         inp, target = x[:, :-1], x[:, 1:]
 

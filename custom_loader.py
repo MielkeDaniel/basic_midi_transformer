@@ -1,6 +1,6 @@
 import torch
 import sys
-sys.path.append('./tegridy-tools/tegridy-tools/')
+sys.path.append('./tegridy-tools/')
 import TMIDIX
 from custom_basic_transformer import MusicTransformer, AutoregressiveWrapper
 
