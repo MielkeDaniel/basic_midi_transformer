@@ -1,10 +1,13 @@
 # Basic MIDI Transformer
 
 A PyTorch implementation of a Transformer model for MIDI music generation. This model can learn patterns from MIDI files and generate new music sequences in a similar style.
-###NOTE: This implementation has no proper beat quantization resulting in the melodies being "off beat". 
-This is also a single track generator for single track melodies (e.g. no melodies + drums + bass). 
 
 ![Training Loss](/training_loss/training_progress.png)
+
+--------------------
+### NOTE: 
+This implementation has no proper beat quantization resulting in the melodies being "off beat". 
+This is also a single track generator for single track melodies (e.g. no sampling for melodies + drums + bass). 
 
 ## Features
 
