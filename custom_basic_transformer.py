@@ -80,7 +80,7 @@ class MultiHeadAttention(nn.Module):
         self.rope = RotaryEmbedding(dim_head)
 
     def forward(self, x, mask=None):
-        b, n, _ = x.shape
+        b, n, d = x.shape
         h = self.heads
 
         q = rearrange(self.to_q(x), 'b n (h d) -> b h n d', h=h)
@@ -101,18 +101,16 @@ class MultiHeadAttention(nn.Module):
 
         # In MultiHeadAttention, add the return statement:
         if self.flash and torch.cuda.is_available():
-            with torch.backends.cuda.sdpa_kernel(enable_flash=True,
-                                            enable_math=False,
-                                            enable_mem_efficient=True):
+            with torch.backends.cuda.sdp_kernel(enable_flash=True,
+                                                enable_math=False,
+                                                enable_mem_efficient=True):
                 out = F.scaled_dot_product_attention(
                     q, k, v,
                     attn_mask=mask,
                     dropout_p=self.dropout if self.training else 0.,
                     is_causal=mask is None
                 )
-                return self.to_out(rearrange(out, 'b h n d -> b n (h d)'))
         else:
-            # Manual attention computation
             scale = (self.d_head ** 0.5)
             attn_scores = (q @ k.transpose(-2, -1)) / scale
             
@@ -122,7 +120,7 @@ class MultiHeadAttention(nn.Module):
             attn_probs = torch.softmax(attn_scores, dim=-1)
             attn_probs = self.attn_dropout(attn_probs)
             out = attn_probs @ v
-        
+            
         return self.to_out(rearrange(out, 'b h n d -> b n (h d)'))
 
 
