@@ -326,3 +326,12 @@ class AutoregressiveWrapper(nn.Module):
             return out[:, :]  # Return entire sequence explicitly
         else:
             return out[:, t:]  # Return only generated part
+
+# print amount of model parameters
+
+# parameters: 197.64.037 with dim=512, depth=6, heads=8, dim_head=64
+# parameters: 800.000 with dim=128, depth=3, heads=4, dim_head=32
+
+def printModelParameters(model):
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total model parameters: {total_params}")

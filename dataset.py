@@ -3,10 +3,9 @@ import os
 import torch
 from torch.utils.data import Dataset
 import TMIDIX
-from torch.utils.data import DataLoader
 
 class MIDI_Dataset(Dataset):
-    def __init__(self, path='./dataset', max_seq_len=80, pad_idx=835, rand_start=False, shuffle=True, aug=False):
+    def __init__(self, path='./content/909_dataset', max_seq_len=128, pad_idx=835, rand_start=True, shuffle=True, aug=False):
         self.rand_start = rand_start
         self.midi_list = get_midi_list(path)
         if shuffle:
@@ -52,9 +51,9 @@ class MIDI_Dataset(Dataset):
 
     def __getitem__(self, idx):
         try:
-            raw_score = TMIDIX.midi2single_track_ms_score(self.midi_list[idx]) # test "./dataset/A_simple_midi_60bpm.mid"
+            raw_score = TMIDIX.midi2single_track_ms_score(self.midi_list[idx]) 
             raw_notes = [event for event in raw_score[1] if event[0] == 'note']
-
+            
             # minimum notes threshold, otherwise do not return none but a random sample
             if len(raw_notes) < 40:  # Minimum notes threshold
                 self.counter += 1 
@@ -74,7 +73,8 @@ class MIDI_Dataset(Dataset):
                 sequence.append(pitch + 256)
                 current_time = note[1]
 
-            if self.rand_start and len(sequence) > self.max_seq_len:
+            # even if rand_start is true, only do it in 85% of the cases
+            if self.rand_start and len(sequence) > self.max_seq_len and random.random() < 0.85:
                 start = random.randint(0, len(sequence) - self.max_seq_len - 1)
                 sequence = sequence[start:start+self.max_seq_len+1]
             else:
@@ -128,3 +128,16 @@ def detokenize(sample, output_file="output"):
         timings_multiplier=32
     )
 
+# print amount of tokens in the dataset 
+def print_tokens(dataset):
+    tokens = 0
+    for i in range(len(dataset)):
+        tokens += len(dataset[i])
+        # print every 100 files
+        if i % 100 == 0:
+            print(f"Processed {i} files with {tokens} tokens")
+    print(f"Total tokens: {tokens}")
+
+
+#12.000.000 tokens in 909 dataset --> 600.000 parameters in model (12M / 20)
+# 100.000 tokens in dataset --> 5.000 parameters in model (100 / 20)
