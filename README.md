@@ -58,6 +58,8 @@ class Args:
 ```bash
 python custom_training.py
 ```
+## V1 
+You may also use the custom_loader to generate sequences using the v1.0.pt model for exploration or finetuning. 
 
 ## Model Architecture
 
